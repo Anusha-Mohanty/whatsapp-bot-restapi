@@ -24,7 +24,7 @@ node server.js
 ```
 - The first time, scan the WhatsApp QR code in the terminal to authenticate.
 
-## 🔁 Trigger Message Sending
+## 🔁 Trigger Message Sending(IN NEW TERMINAL)
 
 ### 1. **Scheduled Messages (every X minutes)**
 - Set `SCHEDULE_INTERVAL_MINUTES` in `.env` (default: 5)
@@ -32,7 +32,8 @@ node server.js
   ```bash
   node trigger-scheduler.js
   ```
-
+  
+Make sure u run the following in a new terminal while the server runs in other:
 ### 2. **Instant Messages (all at once)**
 - Run:
   ```bash

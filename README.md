@@ -12,9 +12,13 @@
    - Fill in:
      - `API_TOKEN=your_secret_token`
      - `GOOGLE_SHEET_ID=your_google_sheet_id`
-     - (Other values as needed)
+     - (Other values as needed, e.g., timezone, due window, etc.)
+
+4. **Add your Google API credentials:**
+   - Place your `creds.json` in the project root (do not commit real credentials to public repos).
 
 ## 🟢 Start the REST API Server
+
 ```bash
 node server.js
 ```
@@ -23,39 +27,75 @@ node server.js
 ## 🔁 Trigger Message Sending
 
 ### 1. **Scheduled Messages (every X minutes)**
-- Set `SCHEDULE_INTERVAL_MINUTES` in `.env` (e.g., 5)
-- In a new terminal:
+- Set `SCHEDULE_INTERVAL_MINUTES` in `.env` (default: 5)
+- Run:
   ```bash
   node trigger-scheduler.js
   ```
-- This will trigger the `/send-now` endpoint in `scheduled` mode every X minutes.
 
-### 2. **Instant Messages (one-off)**
+### 2. **Instant Messages (all at once)**
 - Run:
   ```bash
   node trigger-instant.js
   ```
-- Or use curl:
-  ```bash
-  curl -X POST http://localhost:3000/send-now \
-    -H "Authorization: Bearer your_secret_token" \
-    -H "Content-Type: application/json" \
-    -d '{"mode":"instant"}'
+
+### 3. **Manual Trigger (for testing)**
+- Use curl or PowerShell:
+  ```powershell
+  $headers = @{
+    "Authorization" = "Bearer your_secret_token"
+    "Content-Type" = "application/json"
+  }
+  $body = '{"mode":"combined"}'
+  Invoke-RestMethod -Uri "http://localhost:3000/send-now" -Method Post -Headers $headers -Body $body
   ```
 
-## 🛑 Stop the Server or Scripts
-- Press `Ctrl+C` in the terminal where `node server.js`, `trigger-scheduler.js`, or `trigger-instant.js` is running.
+## 🛑 Stopping the Server/Scripts
 
----
-### **Testing Steps**
-- Install Node.js and dependencies (`npm install`)
-- Set up `.env` with their own API token and Google Sheet ID
-- Start the server (`node server.js`)
-- Trigger messages using the provided scripts or curl/Postman
-- Stop with `Ctrl+C` when done
+- Press `Ctrl+C` in the terminal to stop any running server or script.
 
----
+## 📁 Files to Include in the Repo
 
+- `server.js` (REST API server)
+- `sendMessage.js` (message logic)
+- `utils.js` (utility functions)
+- `config.js`, `config.json` (configuration)
+- `sheets.js` (Google Sheets logic)
+- `scheduler.js` (scheduling logic)
+- `schedule-persistence.js` (schedule saving/loading)
+- `menu.js` (menu system, if keeping CLI)
+- `index.js` (main entry for CLI/menu, optional)
+- `trigger-scheduler.js` (scheduled trigger script)
+- `trigger-instant.js` (instant trigger script)
+- `.env.example` (template for environment variables)
+- `README.md` (this file)
+- `.gitignore` (see below)
+
+## 🔒 Security & .gitignore
+
+- **Never commit your real `.env` or `creds.json` to a public repo.**
+- Add these to `.gitignore`:
+  ```
+  .env
+  creds.json
+  .wwebjs_auth/
+  .wwebjs_cache/
+  node_modules/
+  saved-schedules.json
+  ```
+
+## 📝 What to Share for Testing
+
+- The repo (with all code/scripts above)
+- `.env.example` file
+- Updated `README.md`
+- Google Sheet link (with sample/test data)
+- API token (or instructions to set their own)
+
+## 🛠️ Additional Notes
+- The CLI/menu system (`start.js`, `index.js`, `menu.js`) is optional for REST API use, but can be included for advanced/manual control.
+- All message scheduling and sending is now triggered via the REST API or the provided trigger scripts.
+- For any issues, check the logs in your terminal for errors or status updates.
 
 # WhatsApp Scheduler Bot
 

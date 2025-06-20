@@ -1,0 +1,33 @@
+{
+  "name": "whatsapp-scheduler-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp Scheduler Bot",
+  "main": "start.js",
+  "bin": "start.js",
+  "scripts": {
+    "start": "node start.js",
+    "build": "node build.js"
+  },
+  "pkg": {
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist",
+    "assets": [
+      "node_modules/**/*",
+      "config.json",
+      "creds.json"
+    ]
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "google-auth-library": "^9.15.1",
+    "google-spreadsheet": "^4.1.4",
+    "googleapis": "^126.0.1",
+    "luxon": "^3.5.0",
+    "node-cron": "^3.0.3",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.30.0"
+  }
+}

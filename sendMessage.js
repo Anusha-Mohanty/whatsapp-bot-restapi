@@ -100,8 +100,15 @@ async function processCombinedMessages(client, sheetName, options = {}) {
     const image = row[imgCol] || '';
     const run = row[runCol] || '';
 
-    if (!phoneString || !message || status.toLowerCase().includes('sent') || run.toLowerCase() !== 'yes') {
-      if(run.toLowerCase() !== 'yes') skippedCount++;
+    if (!phoneString || !message || status.toLowerCase().includes('sent')) {
+      continue;
+    }
+
+    if (run.toLowerCase() !== 'yes') {
+      if (time && !status.toLowerCase().includes('sent')) {
+        scheduledMessagesRemaining--;
+      }
+      skippedCount++;
       continue;
     }
     

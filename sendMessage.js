@@ -1,6 +1,7 @@
 const { MessageMedia } = require('whatsapp-web.js');
 const { google } = require('googleapis');
 const { isTimeDue, parseTime } = require('./utils');
+const { getRows, updateCellByName } = require('./sheets');
 const creds = require('./creds.json');
 
 const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || 'Asia/Kolkata';
@@ -51,38 +52,26 @@ async function processCombinedMessages(client, sheetName, options = {}) {
   const { scheduledMode = false, instantMode = false, autoStopSchedule = false } = options;
 
   console.log(`📋 Processing messages from sheet: ${sheetName} (Instant: ${instantMode}, Scheduled: ${scheduledMode})`);
-  const auth = new google.auth.GoogleAuth({
-    credentials: creds,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth: await auth.getClient() });
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  
+  const rows = await getRows(sheetName);
 
-  const valuesRes = await sheets.spreadsheets.values.get({ spreadsheetId, range: sheetName });
-  const rows = valuesRes.data.values;
-
-  if (!rows || rows.length <= 1) {
+  if (!rows || rows.length === 0) {
     console.log('✅ No data to process.');
     return { sent: 0, failed: 0, skipped: 0, scheduledMessagesRemaining: 0, shouldStopSchedule: true };
   }
-
-  const headers = rows[0].map(h => h.toLowerCase());
-  const col = (name) => headers.indexOf(name);
   
-  const phoneCol = col('phone numbers');
-  const msgCol = col('message text');
-  const statusCol = col('status');
-  const timeCol = col('time');
-  const imgCol = col('image');
-  const runCol = col('run');
+  const phoneCol = 'Phone Numbers';
+  const msgCol = 'Message Text';
+  const statusCol = 'Status';
+  const timeCol = 'Time';
+  const imgCol = 'Image';
+  const runCol = 'Run';
   
   let sentCount = 0, failedCount = 0, skippedCount = 0;
   let scheduledMessagesRemaining = 0;
 
-  const allRows = rows.slice(1);
-
   // First pass: Count all unsent messages that have a scheduled time.
-  for (const row of allRows) {
+  for (const row of rows) {
     const status = row[statusCol] || '';
     const time = row[timeCol] || '';
     if (!status.toLowerCase().includes('sent') && time) {
@@ -90,8 +79,8 @@ async function processCombinedMessages(client, sheetName, options = {}) {
     }
   }
 
-  for (let i = 0; i < allRows.length; i++) {
-    const row = allRows[i];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const rowIndex = i + 2; // Sheet rows are 1-indexed, and we have a header
     const phoneString = row[phoneCol];
     const message = row[msgCol];
@@ -153,14 +142,10 @@ async function processCombinedMessages(client, sheetName, options = {}) {
         if (time) {
             scheduledMessagesRemaining--;
         }
-        if (statusCol !== -1) {
-            const range = `${sheetName}!${String.fromCharCode(65 + statusCol)}${rowIndex}`;
-            await sheets.spreadsheets.values.update({
-              spreadsheetId,
-              range,
-              valueInputOption: 'USER_ENTERED',
-              resource: { values: [['✅ Sent']] },
-            });
+        try {
+          await updateCellByName(sheetName, rowIndex, statusCol, '✅ Sent');
+        } catch (e) {
+          console.error(`❌ Failed to update status for row ${rowIndex}: ${e.message}`);
         }
     }
   }

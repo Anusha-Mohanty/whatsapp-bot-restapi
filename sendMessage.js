@@ -1,6 +1,6 @@
 const { MessageMedia } = require('whatsapp-web.js');
 const { google } = require('googleapis');
-const { isTimeDue } = require('./utils');
+const { isTimeDue, parseTime } = require('./utils');
 const creds = require('./creds.json');
 
 const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || 'Asia/Kolkata';
@@ -48,9 +48,9 @@ async function sendMessage(client, numberOrLink, message, imageUrl) {
 }
 
 async function processCombinedMessages(client, sheetName, options = {}) {
-  const { scheduledMode = false, autoStopSchedule = false } = options;
+  const { scheduledMode = false, instantMode = false, autoStopSchedule = false } = options;
 
-  console.log(`📋 Processing messages from sheet: ${sheetName}`);
+  console.log(`📋 Processing messages from sheet: ${sheetName} (Instant: ${instantMode}, Scheduled: ${scheduledMode})`);
   const auth = new google.auth.GoogleAuth({
     credentials: creds,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -74,6 +74,7 @@ async function processCombinedMessages(client, sheetName, options = {}) {
   const statusCol = col('status');
   const timeCol = col('time');
   const imgCol = col('image');
+  const runCol = col('run');
   
   let sentCount = 0, failedCount = 0, skippedCount = 0;
   let scheduledMessagesRemaining = 0;
@@ -97,12 +98,27 @@ async function processCombinedMessages(client, sheetName, options = {}) {
     const status = row[statusCol] || '';
     const time = row[timeCol] || '';
     const image = row[imgCol] || '';
+    const run = row[runCol] || '';
 
-    if (!phoneString || !message || status.toLowerCase().includes('sent')) {
+    if (!phoneString || !message || status.toLowerCase().includes('sent') || run.toLowerCase() !== 'yes') {
+      if(run.toLowerCase() !== 'yes') skippedCount++;
       continue;
     }
     
-    if (scheduledMode && time && !isTimeDue(time, DEFAULT_TIMEZONE, DUE_WINDOW_MINUTES)) {
+    // If in instant mode, only send messages that do NOT have a time specified.
+    if (instantMode && time) {
+        skippedCount++;
+        continue; // Skip rows with a time in instant mode
+    }
+    
+    if (scheduledMode && time) {
+        const scheduledTime = parseTime(time, DEFAULT_TIMEZONE);
+        if (!scheduledTime || !isTimeDue(scheduledTime, DUE_WINDOW_MINUTES)) {
+            skippedCount++;
+            continue;
+        }
+    } else if (scheduledMode && !time) {
+        // In scheduled mode, if there's no time, we should skip it.
         skippedCount++;
         continue;
     }

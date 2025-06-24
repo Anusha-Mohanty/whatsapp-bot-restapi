@@ -1,7 +1,6 @@
 // Google Sheets integration logic
 const { google } = require('googleapis');
 const creds = require('./creds.json');
-const { GOOGLE_SHEET_ID } = process.env;
 
 const { GoogleAuth } = require('google-auth-library');
 const auth = new google.auth.GoogleAuth({
@@ -23,7 +22,7 @@ async function getClient() {
 
 async function getRows(sheetName) {
   console.log(`\n📥 Starting getRows for sheet: ${sheetName}`);
-  console.log(`📊 Sheet ID: ${GOOGLE_SHEET_ID}`);
+  console.log(`📊 Sheet ID: ${process.env.GOOGLE_SHEET_ID}`);
   
   try {
     const client = await getClient();
@@ -32,7 +31,7 @@ async function getRows(sheetName) {
     // First, get the sheet metadata to verify it exists and get its exact name
     console.log('🔍 Fetching sheet metadata...');
     const metadata = await sheets.spreadsheets.get({
-      spreadsheetId: GOOGLE_SHEET_ID,
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
       fields: 'sheets.properties'
     });
 
@@ -52,12 +51,12 @@ async function getRows(sheetName) {
     // Get values from the sheet
     console.log(`\n📥 Fetching values from sheet: ${exactSheetName}`);
     console.log('🔍 API Request:', {
-      spreadsheetId: GOOGLE_SHEET_ID,
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
       range: exactSheetName
     });
     
     const valuesRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: GOOGLE_SHEET_ID,
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
       range: exactSheetName
     });
 
@@ -123,7 +122,7 @@ async function updateCell(sheetName, row, col, value) {
     // Get the exact sheet name first
     console.log('🔍 Fetching sheet metadata...');
     const metadata = await sheets.spreadsheets.get({
-      spreadsheetId: GOOGLE_SHEET_ID,
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
       fields: 'sheets.properties'
     });
     
@@ -139,13 +138,13 @@ async function updateCell(sheetName, row, col, value) {
     console.log('✅ Sheet found:', exactSheetName);
     
     console.log('🔍 API Request:', {
-      spreadsheetId: GOOGLE_SHEET_ID,
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
       range: `${exactSheetName}!H${row}`,
       value: value
     });
     
     await sheets.spreadsheets.values.update({
-      spreadsheetId: GOOGLE_SHEET_ID,
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
       range: `${exactSheetName}!H${row}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
@@ -165,4 +164,59 @@ async function updateCell(sheetName, row, col, value) {
   }
 }
 
-module.exports = { getRows, updateCell };
+async function updateCellByName(sheetName, rowIndex, colName, value) {
+  try {
+    console.log(`\n📝 Updating row ${rowIndex}, column "${colName}" in sheet: ${sheetName}`);
+    const client = await getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+
+    // Get the exact sheet name first
+    const metadata = await sheets.spreadsheets.get({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      fields: 'sheets.properties'
+    });
+    
+    const targetSheet = metadata.data.sheets.find(sheet => 
+      sheet.properties.title.toLowerCase() === sheetName.toLowerCase()
+    );
+    
+    if (!targetSheet) {
+      throw new Error(`Sheet "${sheetName}" not found`);
+    }
+    const exactSheetName = targetSheet.properties.title;
+    
+    // Get headers to find the column index
+    const headerRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range: `${exactSheetName}!A1:1`, // Get the entire first row
+    });
+
+    if (!headerRes.data.values || headerRes.data.values.length === 0) {
+      throw new Error(`Could not read headers from sheet: ${exactSheetName}`);
+    }
+    const headers = headerRes.data.values[0].map(h => h.toLowerCase());
+    const colIndex = headers.indexOf(colName.toLowerCase());
+
+    if (colIndex === -1) {
+      throw new Error(`Column "${colName}" not found in sheet: ${exactSheetName}`);
+    }
+
+    const colLetter = String.fromCharCode(65 + colIndex);
+    const range = `${exactSheetName}!${colLetter}${rowIndex}`;
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [[value]]
+      }
+    });
+    console.log(`✅ Updated ${range} with "${value}"`);
+  } catch (error) {
+    console.error('❌ Error updating cell by name:', error.message);
+    throw error;
+  }
+}
+
+module.exports = { getRows, updateCellByName };

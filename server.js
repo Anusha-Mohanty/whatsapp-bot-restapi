@@ -104,6 +104,11 @@ app.get('/', (req, res) => {
   res.send('WhatsApp Scheduler Bot API is running. POST /send-now to trigger message sending.');
 });
 
+// Initialize WhatsApp client on startup
+getWhatsAppClient().catch(err => {
+  console.error('❌ Failed to initialize WhatsApp client on startup:', err);
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 REST API server running on port ${PORT}`);
 }); 
